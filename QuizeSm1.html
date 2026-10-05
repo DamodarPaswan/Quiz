@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebnDamo Quiz</title>
+<style>
+  /* only 3 colours: white, dark grey text, one blue accent */
+  :root { --accent: #3bb9d89a; --text: #222; --line: #ccc; --soft: #f4f4f4; }
+  body { font-family: Arial, sans-serif; background: #fff; color: var(--text); margin: 0; }
+  header { background: var(--accent); color: #fff; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 20px; margin: 0; }
+  #timer { font-weight: bold; font-size: 18px; }
+  main { max-width: 700px; margin: 25px auto; padding: 0 15px; }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 22px; margin-bottom: 18px; }
+  .count { color: #666; font-size: 14px; margin-bottom: 10px; }
+  .q { font-size: 19px; line-height: 1.4; margin: 0 0 16px; }
+  .opt { display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 9px; border: 1px solid var(--line); background: #fff; border-radius: 6px; font-size: 16px; cursor: pointer; }
+  .opt:hover { border-color: var(--accent); }
+  .opt.picked { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .nav { display: flex; justify-content: space-between; margin-top: 12px; }
+  button.btn { padding: 10px 18px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 15px; cursor: pointer; }
+  button.btn:disabled { background: #bbb; cursor: default; }
+  .hidden { display: none; }
+  .score { font-size: 32px; font-weight: bold; text-align: center; margin: 5px 0; }
+  .res-opt { padding: 8px 10px; border-radius: 5px; margin-bottom: 6px; border: 1px solid var(--line); }
+  .res-opt.right { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .res-opt.wrong { border: 2px solid var(--text); text-decoration: line-through; }
+  .sol { background: var(--soft); border-left: 4px solid var(--accent); padding: 10px 12px; margin-top: 10px; font-size: 15px; line-height: 1.5; }
+  .skipped { color: #666; font-size: 14px; margin-bottom: 6px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>WebnDamo Quiz</h1>
+  <div id="timer">10:00</div>
+</header>
+
+<main>
+  <div id="quiz" class="card">
+    <div class="count" id="count"></div>
+    <p class="q" id="question"></p>
+    <div id="options"></div>
+    <div class="nav">
+      <button class="btn" id="prev">Previous</button>
+      <button class="btn" id="next">Next</button>
+    </div>
+    <div style="text-align:center; margin-top:14px;">
+      <button class="btn" id="submit">Submit Test</button>
+    </div>
+  </div>
+
+  <div id="result" class="hidden">
+    <div class="card">
+      <div>Your score </div>
+      <div class="score"><span id="score"></span> / 10</div>
+      <button class="btn" onclick="location.reload()">Try again</button>
+    </div>
+    <div id="review"></div>
+  </div>
+</main>
+
+<script>
+var questions = [
+  {
+    q: "If a positronium atom makes a transition from n = 3 to n = 2, the energy of the emitted photon is closest to:",
+    opts: ["1.88 eV", "0.94 eV", "1.13 eV", "2.27 eV"],
+    ans: 1,
+    sol: "In positronium the reduced mass is m/2 (not m as in hydrogen), so the levels are half of hydrogen's: E_n = -6.8 eV / n². E3 = -0.756 eV and E2 = -1.70 eV, so the photon energy is 1.70 - 0.756 = 0.94 eV. (1.88 eV is the hydrogen value, about 1.89 eV.)"
+  },
+  {
+    q: "For the fields of an accelerating charge, how should E and B vary with the retarded distance r so that the Poynting vector gives finite radiated power at arbitrarily large distances?",
+    opts: ["1/r", "1/r²", "r", "r²"],
+    ans: 0,
+    sol: "Power through a sphere of radius r is S × 4πr². For this to stay finite as r grows, S must fall as 1/r². Since S = E × B / μ0, and E and B are proportional to each other in the radiation zone, each field must go as 1/r."
+  },
+  {
+    q: "Expression for Newton's second law of motion:",
+    opts: ["F = ma", "PV = nRT", "E = mc²", "P = mv"],
+    ans: 0,
+    sol: "The net force on a body equals its mass times its acceleration, F = ma (more generally F = dp/dt). PV = nRT is the ideal gas law, E = mc² is mass-energy equivalence, and P = mv is momentum."
+  },
+  {
+    q: "What is the value of 1/2 + 1/6 + 1/12 + ... to infinity?",
+    opts: ["1", "2", "2/3", "∞"],
+    ans: 0,
+    sol: "The terms are 1/(n(n+1)) = 1/n - 1/(n+1). The sum telescopes: (1 - 1/2) + (1/2 - 1/3) + (1/3 - 1/4) + ... Everything cancels except the first 1 and the last term, which goes to 0. So the sum is 1."
+  },
+  {
+    q: "What is the mass of a proton (in MeV)?",
+    opts: ["0.511 MeV", "938.3 MeV", "939.6 MeV", "11.2 MeV"],
+    ans: 1,
+    sol: "The proton rest mass is about 938.3 MeV/c². 0.511 MeV is the electron and 939.6 MeV is the neutron."
+  },
+  {
+    q: "Unit of force?",
+    opts: ["Newton", "Tesla", "Coulomb", "None of these"],
+    ans: 0,
+    sol: "The SI unit of force is the newton (N), where 1 N = 1 kg·m/s². Tesla measures magnetic field and coulomb measures charge."
+  },
+  {
+    q: "1 litre of milk is equivalent to about:",
+    opts: ["1.03 kg", "1.0 kg", "0.92 kg", "1.42 kg"],
+    ans: 0,
+    sol: "Milk is slightly denser than water because of the dissolved fats, proteins and sugars. Its density is about 1.03 kg per litre, so 1 litre is roughly 1.03 kg."
+  },
+  {
+    q: "Who is known as the Missile Man of India?",
+    opts: ["Dr. A.P.J. Abdul Kalam", "Abul Kalam Azad", "Jamsetji Tata", "Homi J. Bhabha"],
+    ans: 0,
+    sol: "Dr. A.P.J. Abdul Kalam led India's missile development at DRDO and ISRO and later became the 11th President of India. Abul Kalam Azad was an independence leader and the first education minister."
+  },
+  {
+    q: "How many members were there in the Constituent Assembly (after partition)?",
+    opts: ["299", "298", "320", "215"],
+    ans: 0,
+    sol: "The Assembly originally had 389 members. After the partition of India, the members from areas that went to Pakistan left, and the strength became 299."
+  },
+  {
+    q: "In which year did the First Battle of Panipat take place?",
+    opts: ["1526", "1389", "1905", "1255"],
+    ans: 0,
+    sol: "It was fought in 1526, when Babur defeated Ibrahim Lodi of the Delhi Sultanate. This battle started the Mughal Empire in India."
+  }
+];
+
+var current = 0;
+var picked = [];
+var secondsLeft = 10 * 60;
+var timerId;
+
+for (var i = 0; i < questions.length; i++) picked.push(-1);
+
+function show() {
+  var q = questions[current];
+  document.getElementById("count").textContent = "Question " + (current + 1) + " of " + questions.length;
+  document.getElementById("question").textContent = q.q;
+
+  var box = document.getElementById("options");
+  box.innerHTML = "";
+  q.opts.forEach(function (text, idx) {
+    var b = document.createElement("button");
+    b.className = "opt" + (picked[current] === idx ? " picked" : "");
+    b.textContent = text;
+    b.onclick = function () {
+      picked[current] = idx;
+      show();
+    };
+    box.appendChild(b);
+  });
+
+  document.getElementById("prev").disabled = (current === 0);
+  document.getElementById("next").disabled = (current === questions.length - 1);
+}
+
+document.getElementById("prev").onclick = function () { current--; show(); };
+document.getElementById("next").onclick = function () { current++; show(); };
+
+document.getElementById("submit").onclick = function () {
+  var left = picked.filter(function (p) { return p === -1; }).length;
+  if (left > 0 && !confirm(left + " question(s) not answered. Submit anyway?")) return;
+  finish();
+};
+
+function tick() {
+  secondsLeft--;
+  var m = Math.floor(secondsLeft / 60);
+  var s = secondsLeft % 60;
+  document.getElementById("timer").textContent = m + ":" + (s < 10 ? "0" : "") + s;
+  if (secondsLeft <= 0) finish();
+}
+timerId = setInterval(tick, 1000);
+
+function finish() {
+  clearInterval(timerId);
+  var score = 0;
+  var html = "";
+
+  questions.forEach(function (q, i) {
+    if (picked[i] === q.ans) score++;
+
+    html += '<div class="card"><div class="count">Question ' + (i + 1) + '</div>';
+    html += '<p class="q">' + q.q + '</p>';
+    if (picked[i] === -1) html += '<div class="skipped">You did not answer this one.</div>';
+
+    q.opts.forEach(function (text, idx) {
+      var cls = "res-opt";
+      var note = "";
+      if (idx === q.ans) { cls += " right"; note = " ✔ correct"; }
+      else if (idx === picked[i]) { cls += " wrong"; note = " ✘ your answer"; }
+      else if (false) {}
+      html += '<div class="' + cls + '">' + text + note + '</div>';
+    });
+
+    html += '<div class="sol"><b>Solution:</b> ' + q.sol + '</div></div>';
+  });
+
+  document.getElementById("score").textContent = score;
+  document.getElementById("review").innerHTML = html;
+  document.getElementById("quiz").classList.add("hidden");
+  document.getElementById("result").classList.remove("hidden");
+  window.scrollTo(0, 0);
+}
+
+show();
+</script>
+</body>
+</html>
